@@ -1,0 +1,151 @@
+import sys
+import threading
+import time
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QLabel, QVBoxLayout, QWidget, QTextEdit
+
+
+
+class AssemblyMachine(threading.Thread):
+    def __init__(self, machine_id: int, component_type: str, assembly_time: float, total_components: int, log_func):
+        super().__init__()
+        self.machine_id = machine_id
+        self.component_type = component_type
+        self.assembly_time = assembly_time
+        self.total_components = total_components
+        self.total_time = 0.0
+        self.components_produced = []  # Список собранных компонентов
+        self.log_func = log_func
+
+    def assemble(self):
+
+        time.sleep(self.assembly_time)  # Симуляция времени сборки
+        self.components_produced.append(self.component_type)
+        self.log_func(f"Machine {self.machine_id} assembled component {self.component_type}")
+
+    def start_production(self):
+
+        start_time = time.time()
+        for _ in range(self.total_components):
+            self.assemble()
+        self.total_time = time.time() - start_time
+        self.log_func(f"Machine {self.machine_id} finished production in {self.total_time:.2f} seconds")
+
+    def run(self):
+        self.start_production()
+
+
+
+class FinalAssemblyMachine:
+    def __init__(self, machine_id: int, log_func):
+        self.machine_id = machine_id
+        self.log_func = log_func
+
+    def assemble_final_product(self, components: list):
+        #Собирает финальный продукт из переданных компонентов.
+        self.log_func(f"Final Machine {self.machine_id} assembling final product from components: {components}")
+        # Симуляция сборки итогового продукта
+        time.sleep(2)
+        self.log_func(f"Final Machine {self.machine_id} assembled final product successfully!")
+
+
+# Класс фабрики, которая управляет всеми машинами
+class Factory:
+    def __init__(self, log_func):
+        self.machines = []  # Список всех машин на фабрике
+        self.final_machine = None  # Финальная машина
+        self.log_func = log_func
+
+    def add_machine(self, machine: AssemblyMachine):
+        #Добавляет машину на фабрику.
+        self.machines.append(machine)
+
+    def set_final_machine(self, final_machine: FinalAssemblyMachine):
+        #Устанавливает финальную машину для сборки итогового продукта.
+        self.final_machine = final_machine
+
+    def start_production(self):
+        #Запускает все машины и финальную сборку параллельно.
+
+        for machine in self.machines:
+            machine.start()
+
+
+        for machine in self.machines:
+            machine.join()
+
+
+        all_components = []
+        for machine in self.machines:
+            all_components.extend(machine.components_produced)
+
+        # Передаем все собранные компоненты финальной машине для сборки итогового продукта
+        if self.final_machine:
+            self.final_machine.assemble_final_product(all_components)
+        else:
+            self.log_func("No final assembly machine set!")
+
+
+# Класс для создания графического интерфейса с помощью PyQt5
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Factory Production Simulation")
+
+        # Визуальные элементы
+        self.start_button = QPushButton("Start Production")
+        self.log_output = QTextEdit()
+        self.log_output.setReadOnly(True)
+
+
+        layout = QVBoxLayout()
+        layout.addWidget(self.start_button)
+        layout.addWidget(self.log_output)
+
+        # Основной контейнер
+        container = QWidget()
+        container.setLayout(layout)
+        self.setCentralWidget(container)
+
+        # Подключаем кнопку к функции
+        self.start_button.clicked.connect(self.start_production)
+
+        # Инициализация фабрики
+        self.factory = Factory(self.log_message)
+        self.init_machines()
+
+    def init_machines(self):
+        #Инициализация машин и добавление их на фабрику.
+        machine1 = AssemblyMachine(machine_id=1, component_type="A", assembly_time=1.0, total_components=5,
+                                   log_func=self.log_message)
+        machine2 = AssemblyMachine(machine_id=2, component_type="B", assembly_time=1.5, total_components=3,
+                                   log_func=self.log_message)
+        machine3 = AssemblyMachine(machine_id=3, component_type="C", assembly_time=2.0, total_components=4,
+                                   log_func=self.log_message)
+
+        self.factory.add_machine(machine1)
+        self.factory.add_machine(machine2)
+        self.factory.add_machine(machine3)
+
+        final_machine = FinalAssemblyMachine(machine_id=999, log_func=self.log_message)
+        self.factory.set_final_machine(final_machine)
+
+    def start_production(self):
+        #Запускает процесс производства.
+        self.log_message("Starting production...")
+        threading.Thread(target=self.factory.start_production).start()
+
+    def log_message(self, message):
+        #Добавляет сообщение в текстовый журнал.
+        self.log_output.append(message)
+
+
+
+def main():
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec_())
+
+
+if __name__ == "__main__":
+    main()
